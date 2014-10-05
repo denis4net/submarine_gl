@@ -126,6 +126,9 @@ void Engine::InitGL(int Width, int Height)	        // We call this right after o
     gluPerspective(45.0f,(GLfloat)Width/(GLfloat)Height,0.1f,100.0f);	// Calculate The Aspect Ratio Of The Window
 
     glMatrixMode(GL_MODELVIEW);
+    glEnable (GL_BLEND);
+    glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    //glDepthFunc(GL_EQUAL);
 }
 
 
@@ -162,4 +165,10 @@ void Engine::fillCircle(Point center, Length radius, uint color /* = 0xFFFFFF */
 void Engine::addKeyHandler(KeyHandler handler)
 {
     _keyHandlers.push_back(handler);
+}
+
+
+void Engine::fillParallepiped(Rect base, float height, uint color)
+{
+
 }

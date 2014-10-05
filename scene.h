@@ -14,6 +14,7 @@ namespace Scene
     void ticker();
     void up();
     void down();
+    void mouseMove(int x, int y);
 };
 
 #endif // SCENE_H
