@@ -10,9 +10,12 @@
 #include <cstring>
 #include <string>
 
+using namespace std;
+
 
 bool Drawable::loadFromFile(const char *path)
 {
+#if USE_MYSELF_LOADER
     FILE * file = fopen(path, "r");
     if (file == nullptr)
     {
@@ -27,6 +30,7 @@ bool Drawable::loadFromFile(const char *path)
     IndicesArray vertexIndices;
     IndicesArray uvIndices;
     IndicesArray normalIndices;
+    size_t lastIndex = 0;
 
     while (true)
     {
@@ -51,66 +55,120 @@ bool Drawable::loadFromFile(const char *path)
 
         }
         else if ( strcmp( lineHeader, "f" ) == 0 ){
-            std::string vertex1, vertex2, vertex3;
 
             unsigned int vertexIndex[3], uvIndex[3], normalIndex[3];
             int matches = fscanf(file, "%d/%d/%d %d/%d/%d %d/%d/%d\n",
-                                &vertexIndex[0], &uvIndex[0], &normalIndex[0],
-                                &vertexIndex[1], &uvIndex[1], &normalIndex[1],
-                                &vertexIndex[2], &uvIndex[2], &normalIndex[2] );
+                                 &vertexIndex[0], &uvIndex[0], &normalIndex[0],
+                    &vertexIndex[1], &uvIndex[1], &normalIndex[1],
+                    &vertexIndex[2], &uvIndex[2], &normalIndex[2] );
 
             if (matches != 9)
             {
                 ERROR("File can't be read by our simple parser : ( Try exporting with other options\n");
                 return false;
             }
-            vertexIndices.push_back(vertexIndex[0]);
-            vertexIndices.push_back(vertexIndex[1]);
-            vertexIndices.push_back(vertexIndex[2]);
-            uvIndices    .push_back(uvIndex[0]);
-            uvIndices    .push_back(uvIndex[1]);
-            uvIndices    .push_back(uvIndex[2]);
-            normalIndices.push_back(normalIndex[0]);
-            normalIndices.push_back(normalIndex[1]);
-            normalIndices.push_back(normalIndex[2]);
+            vertexIndices.push_back(vertexIndex[0]-1);
+            vertexIndices.push_back(vertexIndex[1]-1);
+            vertexIndices.push_back(vertexIndex[2]-1);
+            uvIndices    .push_back(uvIndex[0]-1);
+            uvIndices    .push_back(uvIndex[1]-1);
+            uvIndices    .push_back(uvIndex[2]-1);
+            normalIndices.push_back(normalIndex[0]-1);
+            normalIndices.push_back(normalIndex[1]-1);
+            normalIndices.push_back(normalIndex[2]-1);
+        }
+        else if (strcmp(lineHeader, "o") == 0)
+        {
         }
     }
 
-    _vertices.clear();
+    VerticesArray vertices;
 
-    for (size_t i = 0; i < vertexIndices.size(); i++)
+    for (; lastIndex < vertexIndices.size(); lastIndex++)
     {
-        Index vi = vertexIndices[i];
-        Index uvi = uvIndices[i];
-        Index ni = normalIndices[i];
+        Index vi = vertexIndices[lastIndex];
+        Index uvi = uvIndices[lastIndex];
+        Index ni = normalIndices[lastIndex];
 
-        _vertices.push_back(temp_vertices[vi]);
-        _normals.push_back(temp_normals[uvi]);
-        _uvs.push_back(temp_uvs[uvi]);
+        vertices.push_back(temp_vertices[vi]);
+        _normals.push_back(temp_normals[ni]);
+        if (uvi != (Index)(-1))
+            _uvs.push_back(temp_uvs[uvi]);
     }
 
-    LOG("Loaded %ul vertices from \"%s\", mesh count: %ul", temp_vertices.size(), path, _vertices.size());
+    _objects.push_back(vertices);
+
+    LOG("Loaded %ul vertices from \"%s\", object count: %ul", temp_vertices.size(), path, _objects.size());
 
     fclose(file);
+#endif
+    _scene = _importer.ReadFile( path,
+            aiProcess_CalcTangentSpace       |
+            aiProcess_Triangulate            |
+            aiProcess_JoinIdenticalVertices  |
+            aiProcess_SortByPType);
+
+    if (_scene == nullptr)
+    {
+        ERROR("Can't load modle \"%s\": %s", path, _importer.GetErrorString());
+        return false;
+    }
     return true;
 }
 
-Drawable::Drawable(Point p): _position(p), _shoudBeDestroyed(false)
-{}
+
+
+void Drawable::setColor(unsigned int color)
+{
+    _color = color;
+}
 
 void Drawable::draw()
 {
     glPushMatrix();
-    glColor3ub(0, 0, 0);
+
+    glColor4ub(0xff & (_color >> 16), 0xff & (_color >> 8), 0xff & _color, 0xff & (_color >> 24));
 
     glTranslatef(_position.x, _position.y, _position.z);
+    glRotatef(_xRot, 1.0f, 0.0f, 0.0f);
+    glRotatef(_yRot, 0.0f, 1.0f, 0.0f);
+    glRotatef(_zRot, 0.0f, 0.0f, 1.0f);
 
-    glBegin(GL_TRIANGLES);
-    for (Vector3D& v: _vertices)
+    glScalef(_scale, _scale, _scale);
+#if USE_MYSELF_LOADER
+    for (VerticesArray& object: _objects)
     {
-        glVertex3f(v.x, v.y, v.z);
+        glBegin(GL_TRIANGLES);
+        for (Vector3D& v: object)
+        {
+            glVertex3f(v.x, v.y, v.z);
+        }
+        glEnd();
     }
-    glEnd();
+#endif
+    for (size_t meshIndex = 0; meshIndex < _scene->mNumMeshes; meshIndex++)
+    {
+        aiMesh *mesh = _scene->mMeshes[meshIndex];
+
+        for (size_t faceIndex = 0; faceIndex < mesh->mNumFaces; faceIndex ++)
+        {
+            aiFace face = mesh->mFaces[faceIndex];
+
+            glBegin(GL_POLYGON);
+            for (size_t i = 0; i < face.mNumIndices; i++)
+            {
+                size_t vertexIndex = face.mIndices[i];
+                glVertex3f(mesh->mVertices[vertexIndex].x,
+                           mesh->mVertices[vertexIndex].y,
+                           mesh->mVertices[vertexIndex].z);
+
+                    glNormal3f( mesh->mNormals[vertexIndex].x,
+                                mesh->mNormals[vertexIndex].y,
+                                mesh->mNormals[vertexIndex].z);
+            }
+            glEnd();
+        }
+    }
     glPopMatrix();
 }
 
@@ -125,15 +183,20 @@ Point &Drawable::getPosition()
 }
 
 
-Rocket::Rocket(Point p): Drawable(p), ticks(0)
-{}
+Rocket::Rocket(const char *path): Drawable(path), ticks(0)
+{
+    _scale = 0.01f;
+}
 
 void Rocket::draw()
 {
+#if defined(USE_2D)
     Engine::fillRect({{_position.x, _position.y, _position.z}, 0.03f, 0.06f}, COLOR_ROCKET);
     Point rocketHeadPos = _position;
     rocketHeadPos.x += 0.015f;
     Engine::fillCircle(rocketHeadPos, 0.015f, COLOR_ROCKET);
+#endif
+    Drawable::draw();
 }
 
 void Rocket::tick()
@@ -145,10 +208,6 @@ void Rocket::tick()
 }
 
 
-Submarine::Submarine(Point p): Drawable(p), _isActivated(false)
-{
-
-}
 
 #ifdef USE_2D
 void Submarine::draw()
@@ -167,18 +226,17 @@ void Submarine::draw()
 #else
 void Submarine::draw()
 {
-    glPushMatrix();
-    glRotatef(90, 0, 1, 0);
     Drawable::draw();
-    glPopMatrix();
 }
 
 #endif
 
 void Submarine::tick()
 {
-    _position.x =  _position.x - SUBMARINE_GAP > -1.0f ?
-                _position.x - SUBMARINE_GAP : 1.0f;
+    _position.x = _R * sin(_angle);
+    _position.z = _R * cos(_angle);
+    _yRot = -(270-(_angle*180/M_PI));
+    _angle += 0.01;
 }
 
 bool Submarine::isActivated()

@@ -8,6 +8,7 @@ namespace Scene
 {
     void init();
     void drawBackground();
+    void drawAxis();
     void drawScene();
     void drawObjects();
     void launchRocket();

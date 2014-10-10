@@ -126,8 +126,9 @@ int	Water::loadTexture (const char * filename,
 */
 void Water::DisplayFunc (void)
 {
+    glEnable(GL_BLEND);
     const float t = glutGet (GLUT_ELAPSED_TIME) / 1000.;
-    const float delta = 2. / RESOLUTION;
+    const float delta = 5. / RESOLUTION;
     const unsigned int length = 2 * (RESOLUTION + 1);
     const float xn = (RESOLUTION + 1) * delta + 1;
     unsigned int i;
@@ -166,10 +167,8 @@ void Water::DisplayFunc (void)
 
     glPushMatrix();
 
-    glLoadIdentity ();
-    glTranslatef (0, 0, -translate_z);
-    glRotatef (rotate_y, 1, 0, 0);
-    glRotatef (rotate_x, 0, 1, 0);
+    float height = -1;
+    int widht = 5;
 
     /* Vertices */
     for (j = 0; j < RESOLUTION; j++)
@@ -305,19 +304,19 @@ void Water::DisplayFunc (void)
     /* The ground */
     glPolygonMode (GL_FRONT_AND_BACK, GL_FILL);
     glDisable (GL_TEXTURE_2D);
+
     glColor3f (1, 0.9, 0.7);
+
     glBegin (GL_TRIANGLE_FAN);
-    glVertex3f (-1, 0, -1);
-    glVertex3f (-1, 0,  1);
-    glVertex3f ( 1, 0,  1);
-    glVertex3f ( 1, 0, -1);
+
+
+    glVertex3f (-1 * widht, height, -1 * widht);
+    glVertex3f (-1 * widht, height,  1 * widht);
+    glVertex3f ( 1 * widht, height,  1 * widht);
+    glVertex3f ( 1 * widht, height, -1 * widht);
     glEnd ();
 
     glTranslatef (0, 0.2, 0);
-
-    /* Render wireframe? */
-    if (wire_frame != 0)
-        glPolygonMode (GL_FRONT_AND_BACK, GL_LINE);
 
     /* The water */
     glEnable (GL_TEXTURE_2D);
@@ -329,27 +328,9 @@ void Water::DisplayFunc (void)
     for (i = 0; i < RESOLUTION; i++)
         glDrawArrays (GL_TRIANGLE_STRIP, i * length, length);
 
-    /* Draw normals? */
-    if (normals != 0)
-    {
-        glDisable (GL_TEXTURE_2D);
-        glColor3f (1, 0, 0);
-        glBegin (GL_LINES);
-        for (j = 0; j < RESOLUTION; j++)
-            for (i = 0; i <= RESOLUTION; i++)
-            {
-                indice = 6 * (i + j * (RESOLUTION + 1));
-                glVertex3fv (&(surface[indice]));
-                glVertex3f (surface[indice] + normal[indice] / 50,
-                            surface[indice + 1] + normal[indice + 1] / 50,
-                        surface[indice + 2] + normal[indice + 2] / 50);
-            }
-
-        glEnd ();
-    }
 
     /* End */
     glFlush ();
-
+    glDisable(GL_BLEND);
     glPopMatrix();
 }

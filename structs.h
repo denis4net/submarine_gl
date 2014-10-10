@@ -9,8 +9,10 @@ typedef float AngleRad;
 
 typedef glm::vec3 Vector3D;
 typedef glm::vec2 Vector2D;
+typedef glm::vec3 Vertex;
 
 typedef std::vector<Vector3D> VerticesArray;
+typedef std::vector<VerticesArray> ObjectArray;
 typedef std::vector<Vector2D> TexturesCoordArray;
 typedef std::vector<Vector3D> NormalsArary;
 typedef unsigned int Index;
