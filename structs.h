@@ -35,6 +35,19 @@ struct Point
     float x, y, z;
 };
 
+struct SpherePoint
+{
+    Length r;
+    AngleRad thetta, phi;
+
+    struct Point toCartesianPoint()
+    {
+        return { r*sin(thetta)*cos(phi),
+                 r*sin(thetta)*sin(phi),
+                 r*cos(thetta) };
+    }
+};
+
 struct Line
 {
     Point a, b;

@@ -15,7 +15,11 @@ namespace Scene
     void ticker();
     void up();
     void down();
+    void water();
     void mouseMove(int x, int y);
+    void mouseClick(int button, int state, int x, int y);
+    void zoomIn();
+    void zoomOut();
 };
 
 #endif // SCENE_H

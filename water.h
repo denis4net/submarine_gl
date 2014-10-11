@@ -1,18 +1,24 @@
 #ifndef WATER_H
 #define WATER_H
 
-int WaterInit(int, char**);
+#include "drawable.h"
 
-namespace Water
+#define DEFAULT_WATER_LEVEL 0.0f
+
+class Water: public Drawable
 {
+protected:
     float z(const float x, const float y, const float t);
-
-    int	loadTexture (const char * filename,
+    int	loadTexture(const char * filename,
                       unsigned char * dest,
                       const int format,
                       const unsigned int size);
+    int init();
 
-    void DisplayFunc ();
+public:
+    Water();
+    virtual void draw() override;
+    virtual void tick() override;
 };
 
 #endif

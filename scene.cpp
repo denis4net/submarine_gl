@@ -14,7 +14,7 @@ static Submarine* _submarine;
 static Drawable* _sphere;
 
 static time_t  _launchTime;
-
+static bool _waterEnabled = true;
 static MousePosition _lastPosition {0, 0, 0};
 
 
@@ -23,29 +23,41 @@ static struct
     AngleRad x, y, z;
 } _rotAngles = {0, 0, 0};
 
+
+static struct
+{
+    SpherePoint eye = {3, 0, 0};
+    Point center = {};
+    Point up = {};
+    Length radius;
+} _camera;
+
 void Scene::init()
 {
     glClearColor(0xae/255.0, 0xf6/255.0, 0xff/255.0, 0);
 
-    ::WaterInit(0, NULL);
+    Water* water = new Water();
+    _drawables.push_back(water);
+
 
     _submarine = new Submarine("resources/submarine.obj");
     _drawables.push_back(_submarine);
 
-    glEnable(GL_LIGHTING);
     glDisable(GL_LIGHT0);
+    glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT1);
 
-    glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
     glEnable(GL_COLOR_MATERIAL);
-    glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
+    glColorMaterial(GL_FRONT, GL_DIFFUSE);
 
     Engine::addKeyHandler({' ', launchRocket});
     Engine::addKeyHandler({'w', up});
     Engine::addKeyHandler({'s', down});
+    Engine::addKeyHandler({'-', zoomOut});
+    Engine::addKeyHandler({'=', zoomIn});
 
     glutMotionFunc(mouseMove);
-
+    glutMouseFunc(mouseClick);
     //run coord update thread
     new std::thread(ticker);
 }
@@ -54,39 +66,15 @@ void Scene::init()
 void Scene::drawBackground()
 {
     glPushMatrix();
-    //set lighting
-    glPushMatrix();
-        GLfloat light1_diffuse[] = {1.0, 1.0, 1.0, 1.0};
-        GLfloat light1_position[] = {2, 2, 0.0, 1.0};
-        GLfloat light1_specular[] = {1, 1, 1, 1};
+        glPushMatrix();
+            GLfloat light1_diffuse[] = {0.9f, 0.9f, 0.8f, 1.0};
+            GLfloat light1_position[] = {0, 0, 0, 0.0};
+            GLfloat disabled[] = {0, 0, 0, 0};
 
-        glLightfv(GL_LIGHT1, GL_AMBIENT, light1_diffuse);
-        glLightfv(GL_LIGHT1, GL_DIFFUSE, light1_diffuse);
-        glLightfv(GL_LIGHT1, GL_POSITION, light1_position);
-
-        glLightfv(GL_LIGHT1, GL_SPECULAR, light1_specular);
-
-        glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 1.0);
-    glPopMatrix();
-
-    glTranslatef(-2, 0, -2);
-    Water::DisplayFunc();
-#if 0
-    glColor4ub(0xFF, 0xFF, 0x31, 0xFF);
-    glTranslatef(1.0, 1.0, 0.0);
-    float sun_color[] = {0xFC/255., 0xFF/255., 0xD9/255., 0xFF/255.};
-    glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, sun_color);
-    glutSolidSphere(0.3f, 100, 100);
-    float other_colors[] = {0, 0, 0, 0};
-    glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, other_colors);
-#endif
-
-#ifdef  USE_2D
-    Rect bRect = {{-1.0f, WATER_LINE_LEVEL}, 2.0f, 1.0f};
-    Engine::fillRect(bRect, 0xaa0000ff);
-    //draw sun
-    Engine::fillCircle({0.3f, 0.3f, 0.0f}, 0.1f, 0xe4e726);
-#endif
+            glLightfv(GL_LIGHT1, GL_DIFFUSE, light1_diffuse);
+            glLightfv(GL_LIGHT1, GL_POSITION, light1_position);
+            glLightfv(GL_LIGHT1, GL_AMBIENT, disabled);
+        glPopMatrix();
     glPopMatrix();
 }
 
@@ -96,10 +84,13 @@ void Scene::drawScene()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);		// Clear The Screen And The Depth Buffer
     glLoadIdentity();
 
-    glTranslatef(0, 0, -1.5f);
-    glRotatef(_rotAngles.x, 1.0f, 0.0f, 0.0f);
-    glRotatef(_rotAngles.y, 0.0f, 1.0f, 0.0f);
-    glRotatef(_rotAngles.z, 0.0f, 0.0f, 1.0f);
+    Point eyePoint = _camera.eye.toCartesianPoint();
+    gluLookAt(eyePoint.x, eyePoint.y, eyePoint.z,
+              0, 0, 0,
+              0, 1, 0);
+
+    glColor3f(0, 0, 0);
+    glutSolidCube(0.5f);
 
     drawObjects();
     drawBackground();
@@ -141,7 +132,7 @@ void Scene::launchRocket()
     else
         return;
 
-    if (_submarine->_position.y >= WATER_LINE_LEVEL)
+    if (_submarine->_position.y >= DEFAULT_WATER_LEVEL)
     {
         Rocket *r = new Rocket("resources/rocket.obj");
         r->getPosition() = _submarine->getPosition();
@@ -154,7 +145,7 @@ void Scene::launchRocket()
 #define SUBMARINE_DEPTH_GAP 0.01f
 void Scene::up()
 {
-    if (_submarine->getPosition().y < WATER_LINE_LEVEL)
+    if (_submarine->getPosition().y < DEFAULT_WATER_LEVEL)
         _submarine->getPosition().y += SUBMARINE_DEPTH_GAP;
 }
 
@@ -183,23 +174,44 @@ void Scene::mouseMove(int x, int y)
     MousePosition delta = cur - _lastPosition;
     _lastPosition = cur;
 
-    _rotAngles.y += delta.x / ( M_PI);
-    _rotAngles.x += delta.y / ( M_PI);
+    _camera.eye.thetta += delta.x  / 320.0;
+    _camera.eye.phi += delta.y / 320.0;
 
-    //LOG("Rotate angle: %f, %f, %f", _rotAngles.x, _rotAngles.y, _rotAngles.z);
+    if (_camera.eye.thetta > M_PI)
+        _camera.eye.thetta = 0;
+
+    if (_camera.eye.phi > 2*M_PI)
+        _camera.eye.phi = 0;
 }
 
 
 void Scene::drawAxis()
 {
-    glColor4ub(0, 0, 0, 255);
-    glLineWidth(1.0);
-    glBegin(GL_LINE);
-    glVertex3f(0, 0, 0);
-    glVertex3f(1, 0, 0);
-    glVertex3f(0, 0, 0);
-    glVertex3f(0, 1, 0);
-    glVertex3f(0, 0, 0);
-    glVertex3f(0, 0, 1);
-    glEnd();
+}
+
+
+void Scene::water()
+{
+    _waterEnabled = !_waterEnabled;
+}
+
+
+void Scene::zoomOut()
+{
+    _camera.eye.r -= 0.1f;
+}
+
+
+void Scene::zoomIn()
+{
+    _camera.eye.r += 0.1f;
+}
+
+
+void Scene::mouseClick(int button, int state, int x, int y)
+{
+    if (button == GLUT_LEFT_BUTTON)
+    {
+        _lastPosition = {x, y};
+    }
 }

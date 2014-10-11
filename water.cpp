@@ -35,7 +35,7 @@ float Water::z(const float x, const float y, const float t)
              Noise (10 * x, 10 * y, t, 0)) / 200);
 }
 
-int	WaterInit(int narg, char ** args)
+int	Water::init()
 {
     unsigned char total_texture[4 * 256 * 256];
     unsigned char alpha_texture[256 * 256];
@@ -53,6 +53,7 @@ int	WaterInit(int narg, char ** args)
     if (Water::loadTexture ("resources/alpha.jpg", alpha_texture, GL_ALPHA, 256) != 0 ||
             Water::loadTexture ("resources/reflection.jpg", caustic_texture, GL_RGB, 256) != 0)
         return 1;
+
     for (i = 0; i < 256 * 256; i++)
     {
         total_texture[4 * i] = caustic_texture[3 * i];
@@ -67,12 +68,19 @@ int	WaterInit(int narg, char ** args)
     glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
     glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+
     glEnable (GL_TEXTURE_GEN_S);
     glEnable (GL_TEXTURE_GEN_T);
+
     glTexGeni (GL_S, GL_TEXTURE_GEN_MODE, GL_SPHERE_MAP);
     glTexGeni (GL_T, GL_TEXTURE_GEN_MODE, GL_SPHERE_MAP);
 
     return 0;
+}
+
+Water::Water(): Drawable({0, 0, 0})
+{
+    init();
 }
 
 /*
@@ -124,9 +132,8 @@ int	Water::loadTexture (const char * filename,
 /*
 ** Function called to update rendering
 */
-void Water::DisplayFunc (void)
+void Water::draw()
 {
-    glEnable(GL_BLEND);
     const float t = glutGet (GLUT_ELAPSED_TIME) / 1000.;
     const float delta = 5. / RESOLUTION;
     const unsigned int length = 2 * (RESOLUTION + 1);
@@ -166,6 +173,9 @@ void Water::DisplayFunc (void)
     float l;
 
     glPushMatrix();
+
+    bool blendEnabled = glIsEnabled(GL_BLEND);
+    glEnable(GL_BLEND);
 
     float height = -1;
     int widht = 5;
@@ -306,31 +316,33 @@ void Water::DisplayFunc (void)
     glDisable (GL_TEXTURE_2D);
 
     glColor3f (1, 0.9, 0.7);
-
     glBegin (GL_TRIANGLE_FAN);
-
-
     glVertex3f (-1 * widht, height, -1 * widht);
     glVertex3f (-1 * widht, height,  1 * widht);
     glVertex3f ( 1 * widht, height,  1 * widht);
     glVertex3f ( 1 * widht, height, -1 * widht);
     glEnd ();
 
-    glTranslatef (0, 0.2, 0);
-
-    /* The water */
     glEnable (GL_TEXTURE_2D);
-    glColor3f (1, 1, 1);
+    glColor4f (1, 1, 1, 0.8);
+    glTranslatef (getPosition().x, getPosition().y, getPosition().z);
     glEnableClientState (GL_NORMAL_ARRAY);
     glEnableClientState (GL_VERTEX_ARRAY);
     glNormalPointer (GL_FLOAT, 0, normal);
     glVertexPointer (3, GL_FLOAT, 0, surface);
+
+
     for (i = 0; i < RESOLUTION; i++)
         glDrawArrays (GL_TRIANGLE_STRIP, i * length, length);
+    glDisable(GL_TEXTURE_2D);
 
-
+    if (blendEnabled)
+        glEnable(GL_BLEND);
     /* End */
-    glFlush ();
-    glDisable(GL_BLEND);
     glPopMatrix();
+}
+
+void Water::tick()
+{
+
 }
