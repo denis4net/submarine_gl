@@ -4,6 +4,9 @@
 #include "drawable.h"
 
 #define DEFAULT_WATER_LEVEL 0.0f
+#define WATER_FOG_LEVEL -0.1f;
+#define	RESOLUTION 64
+
 
 class Water: public Drawable
 {
@@ -14,6 +17,13 @@ protected:
                       const int format,
                       const unsigned int size);
     int init();
+    void generate();
+
+    GLuint	_texture;
+    unsigned int _length;
+
+    float	_surface[6 * RESOLUTION * (RESOLUTION + 1)];
+    float	_normal[6 * RESOLUTION * (RESOLUTION + 1)];
 
 public:
     Water();

@@ -2,6 +2,8 @@
 #include "utils.h"
 #include "drawable.h"
 #include "water.h"
+#include "coordinateaxis.h"
+#include "background.h"
 
 #include <thread>
 #include <chrono>
@@ -18,38 +20,73 @@ static bool _waterEnabled = true;
 static MousePosition _lastPosition {0, 0, 0};
 
 
-static struct
-{
-    AngleRad x, y, z;
-} _rotAngles = {0, 0, 0};
 
+const static float disableColor[] = { 0, 0, 0, 0};
+const static GLfloat background_color[] = { 0xae/255.0, 0xf6/255.0, 0xff/255, 0};
 
 static struct
 {
-    SpherePoint eye = {3, 0, 0};
-    Point center = {};
-    Point up = {};
-    Length radius;
+    SpherePoint eye = {2, 0, 0};
+    Point center = {0, 0, 0};
+    Point up = {0, 1, 0};
 } _camera;
 
 void Scene::init()
 {
-    glClearColor(0xae/255.0, 0xf6/255.0, 0xff/255.0, 0);
+    glClearColor(background_color[0], background_color[1], background_color[2], background_color[3]);
 
-    Water* water = new Water();
-    _drawables.push_back(water);
+    //glEnable(GL_CULL_FACE);
+    //glFrontFace(GL_CCW);
 
+    //glStencilFunc(GL_ALWAYS, 1, 0xFFFFFFFF);
+    //glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
 
-    _submarine = new Submarine("resources/submarine.obj");
-    _drawables.push_back(_submarine);
+    glClearDepth(1.0);
+    glDepthFunc(GL_LESS);
+    glShadeModel(GL_SMOOTH);
 
-    glDisable(GL_LIGHT0);
+    glEnable(GL_DEPTH_TEST);
+
     glEnable(GL_LIGHTING);
+    glDisable(GL_LIGHT0);
     glEnable(GL_LIGHT1);
+
+    glEnable(GL_POLYGON_SMOOTH);
+
+    glDisable(GL_TEXTURE_2D);
+    glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+    glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+
+    glDisable(GL_BLEND);
 
     glEnable(GL_COLOR_MATERIAL);
     glColorMaterial(GL_FRONT, GL_DIFFUSE);
 
+    glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, GL_SEPARATE_SPECULAR_COLOR);
+    glEnable(GL_COLOR_SUM);
+
+    glEnable(GL_NORMALIZE);
+    glEnable(GL_RESCALE_NORMAL);
+
+    glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+
+    // create drawable\renderable objects and add they to container
+
+    _submarine = new Submarine("resources/submarine.obj");
+    _drawables.push_back(_submarine);
+
+    Background *background = new Background();
+    _drawables.push_back(background);
+
+    CoordinateAxis* axis = new CoordinateAxis();
+    _drawables.push_back(axis);
+
+    Water* water = new Water();
+    _drawables.push_back(water);
+
+    //register keyboard handlers
     Engine::addKeyHandler({' ', launchRocket});
     Engine::addKeyHandler({'w', up});
     Engine::addKeyHandler({'s', down});
@@ -58,42 +95,51 @@ void Scene::init()
 
     glutMotionFunc(mouseMove);
     glutMouseFunc(mouseClick);
+
     //run coord update thread
     new std::thread(ticker);
 }
 
 
-void Scene::drawBackground()
+void Scene::setLighting()
 {
     glPushMatrix();
-        glPushMatrix();
-            GLfloat light1_diffuse[] = {0.9f, 0.9f, 0.8f, 1.0};
-            GLfloat light1_position[] = {0, 0, 0, 0.0};
-            GLfloat disabled[] = {0, 0, 0, 0};
+    glTranslatef(0, 1, 0);
 
-            glLightfv(GL_LIGHT1, GL_DIFFUSE, light1_diffuse);
-            glLightfv(GL_LIGHT1, GL_POSITION, light1_position);
-            glLightfv(GL_LIGHT1, GL_AMBIENT, disabled);
-        glPopMatrix();
+    GLfloat light_color[] = {1.0f, 1.0f, 0.7f, 1.0};
+    GLfloat light_position[] = {0, 0, 0, 1};
+    GLfloat light_specular[] = {1, 1, 1, 1};
+
+    glLightfv(GL_LIGHT1, GL_DIFFUSE, light_color);
+    glLightfv(GL_LIGHT1, GL_POSITION, light_position);
+    glLightfv(GL_LIGHT1, GL_SPECULAR, light_specular);
+
+    glPopMatrix();
+
+    glPushMatrix();
+
+    glFogfv(GL_FOG_COLOR, background_color);
+    glFogf(GL_FOG_START, 3.0f);
+    glFogf(GL_FOG_END, 8.0f);
+    glFogi(GL_FOG_MODE, GL_EXP);
     glPopMatrix();
 }
 
 
 void Scene::drawScene()
-{  
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);		// Clear The Screen And The Depth Buffer
+{
+    glClearStencil(0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);		// Clear The Screen And The Depth Buffer
     glLoadIdentity();
 
     Point eyePoint = _camera.eye.toCartesianPoint();
     gluLookAt(eyePoint.x, eyePoint.y, eyePoint.z,
-              0, 0, 0,
-              0, 1, 0);
+              _camera.center.x, _camera.center.y, _camera.center.z,
+              _camera.up.x, _camera.up.y, _camera.up.z);
 
-    glColor3f(0, 0, 0);
-    glutSolidCube(0.5f);
-
+    fog();
     drawObjects();
-    drawBackground();
+    setLighting();
 
     glutSwapBuffers();
 }
@@ -142,7 +188,7 @@ void Scene::launchRocket()
         _objectOperationsMutex.unlock();
     }
 }
-#define SUBMARINE_DEPTH_GAP 0.01f
+
 void Scene::up()
 {
     if (_submarine->getPosition().y < DEFAULT_WATER_LEVEL)
@@ -214,4 +260,14 @@ void Scene::mouseClick(int button, int state, int x, int y)
     {
         _lastPosition = {x, y};
     }
+}
+
+
+void Scene::fog()
+{
+    bool fog = _camera.eye.toCartesianPoint().y < WATER_FOG_LEVEL;
+    if (fog)
+        glEnable(GL_FOG);
+    else
+        glDisable(GL_FOG);
 }

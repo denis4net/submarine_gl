@@ -7,7 +7,7 @@
 namespace Scene
 {
     void init();
-    void drawBackground();
+    void setLighting();
     void drawAxis();
     void drawScene();
     void drawObjects();
@@ -16,6 +16,8 @@ namespace Scene
     void up();
     void down();
     void water();
+    void fog();
+
     void mouseMove(int x, int y);
     void mouseClick(int button, int state, int x, int y);
     void zoomIn();

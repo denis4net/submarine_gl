@@ -6,24 +6,16 @@
 #include <jerror.h>
 #include "noise.h"
 #include "water.h"
+#include "engine.h"
 
-#define		RESOLUTION 64
 
-static GLuint	texture;
-
-static int	left_click = GLUT_UP;
-static int	right_click = GLUT_UP;
-static int	wire_frame = 0;
-static int	normals = 0;
-static int	xold = 0;
-static int	yold = 0;
-static float	rotate_x = 30;
-static float	rotate_y = 15;
-static float	translate_z = 4;
-
-static float	surface[6 * RESOLUTION * (RESOLUTION + 1)];
-static float	normal[6 * RESOLUTION * (RESOLUTION + 1)];
-
+Water::Water(): Drawable({0, 0, 0})
+{
+    init();
+    _scale=5;
+    getPosition().x = 0;
+    getPosition().z = 0;
+}
 
 float Water::z(const float x, const float y, const float t)
 {
@@ -42,14 +34,9 @@ int	Water::init()
     unsigned char caustic_texture[3 * 256 * 256];
     unsigned int i;
 
-    glEnable (GL_DEPTH_TEST);
-    glEnable (GL_BLEND);
-    glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glPolygonMode (GL_FRONT_AND_BACK, GL_FILL);
-    glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
-
     /* Texture loading  */
-    glGenTextures (1, &::texture);
+    glGenTextures (1, &_texture);
+
     if (Water::loadTexture ("resources/alpha.jpg", alpha_texture, GL_ALPHA, 256) != 0 ||
             Water::loadTexture ("resources/reflection.jpg", caustic_texture, GL_RGB, 256) != 0)
         return 1;
@@ -61,35 +48,188 @@ int	Water::init()
         total_texture[4 * i + 2] = caustic_texture[3 * i + 2];
         total_texture[4 * i + 3] = alpha_texture[i];
     }
-    glBindTexture (GL_TEXTURE_2D, texture);
+
+    glBindTexture(GL_TEXTURE_2D, _texture);
     gluBuild2DMipmaps (GL_TEXTURE_2D, GL_RGBA, 256, 256, GL_RGBA,
                        GL_UNSIGNED_BYTE,  total_texture);
-    glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-    glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-
-    glEnable (GL_TEXTURE_GEN_S);
-    glEnable (GL_TEXTURE_GEN_T);
-
-    glTexGeni (GL_S, GL_TEXTURE_GEN_MODE, GL_SPHERE_MAP);
-    glTexGeni (GL_T, GL_TEXTURE_GEN_MODE, GL_SPHERE_MAP);
-
     return 0;
 }
 
-Water::Water(): Drawable({0, 0, 0})
+void Water::generate()
 {
-    init();
+    const float t = glutGet (GLUT_ELAPSED_TIME) / 1000.;
+    const float delta = 2. / RESOLUTION;
+    _length = 2 * (RESOLUTION + 1);
+    const float xn = (RESOLUTION + 1) * delta + 1;
+
+    unsigned int i;
+    unsigned int j;
+    float x;
+    float y;
+    unsigned int indice;
+    unsigned int preindice;
+
+    /* Yes, I know, this is quite ugly... */
+    float v1x;
+    float v1y;
+    float v1z;
+
+    float v2x;
+    float v2y;
+    float v2z;
+
+    float v3x;
+    float v3y;
+    float v3z;
+
+    float vax;
+    float vay;
+    float vaz;
+
+    float vbx;
+    float vby;
+    float vbz;
+
+    float nx;
+    float ny;
+    float nz;
+
+    float l;
+
+
+    /* Vertices */
+    for (j = 0; j < RESOLUTION; j++)
+    {
+        y = (j + 1) * delta - 1;
+        for (i = 0; i <= RESOLUTION; i++)
+        {
+            indice = 6 * (i + j * (RESOLUTION + 1));
+
+            x = i * delta - 1;
+            _surface[indice + 3] = x;
+            _surface[indice + 4] = z (x, y, t);
+            _surface[indice + 5] = y;
+            if (j != 0)
+            {
+                /* Values were computed during the previous loop */
+                preindice = 6 * (i + (j - 1) * (RESOLUTION + 1));
+                _surface[indice] = _surface[preindice + 3];
+                _surface[indice + 1] = _surface[preindice + 4];
+                _surface[indice + 2] = _surface[preindice + 5];
+            }
+            else
+            {
+                _surface[indice] = x;
+                _surface[indice + 1] = z (x, -1, t);
+                _surface[indice + 2] = -1;
+            }
+        }
+    }
+
+    /* Normals */
+    for (j = 0; j < RESOLUTION; j++)
+        for (i = 0; i <= RESOLUTION; i++)
+        {
+            indice = 6 * (i + j * (RESOLUTION + 1));
+
+            v1x = _surface[indice + 3];
+            v1y = _surface[indice + 4];
+            v1z = _surface[indice + 5];
+
+            v2x = v1x;
+            v2y = _surface[indice + 1];
+            v2z = _surface[indice + 2];
+
+            if (i < RESOLUTION)
+            {
+                v3x = _surface[indice + 9];
+                v3y = _surface[indice + 10];
+                v3z = v1z;
+            }
+            else
+            {
+                v3x = xn;
+                v3y = z (xn, v1z, t);
+                v3z = v1z;
+            }
+
+            vax =  v2x - v1x;
+            vay =  v2y - v1y;
+            vaz =  v2z - v1z;
+
+            vbx = v3x - v1x;
+            vby = v3y - v1y;
+            vbz = v3z - v1z;
+
+            nx = (vby * vaz) - (vbz * vay);
+            ny = (vbz * vax) - (vbx * vaz);
+            nz = (vbx * vay) - (vby * vax);
+
+            l = sqrtf (nx * nx + ny * ny + nz * nz);
+            if (l != 0)
+            {
+                l = 1 / l;
+                _normal[indice + 3] = nx * l;
+                _normal[indice + 4] = ny * l;
+                _normal[indice + 5] = nz * l;
+            }
+            else
+            {
+                _normal[indice + 3] = 0;
+                _normal[indice + 4] = 1;
+                _normal[indice + 5] = 0;
+            }
+
+
+            if (j != 0)
+            {
+                /* Values were computed during the previous loop */
+                preindice = 6 * (i + (j - 1) * (RESOLUTION + 1));
+                _normal[indice] = _normal[preindice + 3];
+                _normal[indice + 1] = _normal[preindice + 4];
+                _normal[indice + 2] = _normal[preindice + 5];
+            }
+            else
+            {
+                /* 	    v1x = v1x; */
+                v1y = z (v1x, (j - 1) * delta - 1, t);
+                v1z = (j - 1) * delta - 1;
+
+                /* 	    v3x = v3x; */
+                v3y = z (v3x, v2z, t);
+                v3z = v2z;
+
+                vax = v1x - v2x;
+                vay = v1y - v2y;
+                vaz = v1z - v2z;
+
+                vbx = v3x - v2x;
+                vby = v3y - v2y;
+                vbz = v3z - v2z;
+
+                nx = (vby * vaz) - (vbz * vay);
+                ny = (vbz * vax) - (vbx * vaz);
+                nz = (vbx * vay) - (vby * vax);
+
+                l = sqrtf (nx * nx + ny * ny + nz * nz);
+                if (l != 0)
+                {
+                    l = 1 / l;
+                    _normal[indice] = nx * l;
+                    _normal[indice + 1] = ny * l;
+                    _normal[indice + 2] = nz * l;
+                }
+                else
+                {
+                    _normal[indice] = 0;
+                    _normal[indice + 1] = 1;
+                    _normal[indice + 2] = 0;
+                }
+            }
+        }
 }
 
-/*
-** Function to load a Jpeg file.
-*/
-int	Water::loadTexture (const char * filename,
-                            unsigned char * dest,
-                            const int format,
-                            const unsigned int size)
+int	Water::loadTexture (const char * filename,  unsigned char * dest, const int format, const unsigned int size)
 {
     FILE *fd;
     struct jpeg_decompress_struct cinfo;
@@ -129,216 +269,87 @@ int	Water::loadTexture (const char * filename,
     return 0;
 }
 
-/*
-** Function called to update rendering
-*/
 void Water::draw()
 {
-    const float t = glutGet (GLUT_ELAPSED_TIME) / 1000.;
-    const float delta = 5. / RESOLUTION;
-    const unsigned int length = 2 * (RESOLUTION + 1);
-    const float xn = (RESOLUTION + 1) * delta + 1;
-    unsigned int i;
-    unsigned int j;
-    float x;
-    float y;
+    //return;
+
+    generate();
+
     unsigned int indice;
-    unsigned int preindice;
-
-    /* Yes, I know, this is quite ugly... */
-    float v1x;
-    float v1y;
-    float v1z;
-
-    float v2x;
-    float v2y;
-    float v2z;
-
-    float v3x;
-    float v3y;
-    float v3z;
-
-    float vax;
-    float vay;
-    float vaz;
-
-    float vbx;
-    float vby;
-    float vbz;
-
-    float nx;
-    float ny;
-    float nz;
-
-    float l;
+    float height = -0.5;
+    int widht = 1;
 
     glPushMatrix();
+    glPushAttrib(~0);
 
-    bool blendEnabled = glIsEnabled(GL_BLEND);
-    glEnable(GL_BLEND);
+    glEnable (GL_TEXTURE_GEN_S);
+    glEnable (GL_TEXTURE_GEN_T);
 
-    float height = -1;
-    int widht = 5;
+    glTexGeni (GL_S, GL_TEXTURE_GEN_MODE, GL_SPHERE_MAP);
+    glTexGeni (GL_T, GL_TEXTURE_GEN_MODE, GL_SPHERE_MAP);
 
-    /* Vertices */
-    for (j = 0; j < RESOLUTION; j++)
-    {
-        y = (j + 1) * delta - 1;
-        for (i = 0; i <= RESOLUTION; i++)
-        {
-            indice = 6 * (i + j * (RESOLUTION + 1));
+    glEnable (GL_DEPTH_TEST);
 
-            x = i * delta - 1;
-            surface[indice + 3] = x;
-            surface[indice + 4] = z (x, y, t);
-            surface[indice + 5] = y;
-            if (j != 0)
-            {
-                /* Values were computed during the previous loop */
-                preindice = 6 * (i + (j - 1) * (RESOLUTION + 1));
-                surface[indice] = surface[preindice + 3];
-                surface[indice + 1] = surface[preindice + 4];
-                surface[indice + 2] = surface[preindice + 5];
-            }
-            else
-            {
-                surface[indice] = x;
-                surface[indice + 1] = z (x, -1, t);
-                surface[indice + 2] = -1;
-            }
-        }
-    }
+    glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    /* Normals */
-    for (j = 0; j < RESOLUTION; j++)
-        for (i = 0; i <= RESOLUTION; i++)
-        {
-            indice = 6 * (i + j * (RESOLUTION + 1));
+    glPolygonMode (GL_FRONT_AND_BACK, GL_FILL);
 
-            v1x = surface[indice + 3];
-            v1y = surface[indice + 4];
-            v1z = surface[indice + 5];
-
-            v2x = v1x;
-            v2y = surface[indice + 1];
-            v2z = surface[indice + 2];
-
-            if (i < RESOLUTION)
-            {
-                v3x = surface[indice + 9];
-                v3y = surface[indice + 10];
-                v3z = v1z;
-            }
-            else
-            {
-                v3x = xn;
-                v3y = z (xn, v1z, t);
-                v3z = v1z;
-            }
-
-            vax =  v2x - v1x;
-            vay =  v2y - v1y;
-            vaz =  v2z - v1z;
-
-            vbx = v3x - v1x;
-            vby = v3y - v1y;
-            vbz = v3z - v1z;
-
-            nx = (vby * vaz) - (vbz * vay);
-            ny = (vbz * vax) - (vbx * vaz);
-            nz = (vbx * vay) - (vby * vax);
-
-            l = sqrtf (nx * nx + ny * ny + nz * nz);
-            if (l != 0)
-            {
-                l = 1 / l;
-                normal[indice + 3] = nx * l;
-                normal[indice + 4] = ny * l;
-                normal[indice + 5] = nz * l;
-            }
-            else
-            {
-                normal[indice + 3] = 0;
-                normal[indice + 4] = 1;
-                normal[indice + 5] = 0;
-            }
-
-
-            if (j != 0)
-            {
-                /* Values were computed during the previous loop */
-                preindice = 6 * (i + (j - 1) * (RESOLUTION + 1));
-                normal[indice] = normal[preindice + 3];
-                normal[indice + 1] = normal[preindice + 4];
-                normal[indice + 2] = normal[preindice + 5];
-            }
-            else
-            {
-                /* 	    v1x = v1x; */
-                v1y = z (v1x, (j - 1) * delta - 1, t);
-                v1z = (j - 1) * delta - 1;
-
-                /* 	    v3x = v3x; */
-                v3y = z (v3x, v2z, t);
-                v3z = v2z;
-
-                vax = v1x - v2x;
-                vay = v1y - v2y;
-                vaz = v1z - v2z;
-
-                vbx = v3x - v2x;
-                vby = v3y - v2y;
-                vbz = v3z - v2z;
-
-                nx = (vby * vaz) - (vbz * vay);
-                ny = (vbz * vax) - (vbx * vaz);
-                nz = (vbx * vay) - (vby * vax);
-
-                l = sqrtf (nx * nx + ny * ny + nz * nz);
-                if (l != 0)
-                {
-                    l = 1 / l;
-                    normal[indice] = nx * l;
-                    normal[indice + 1] = ny * l;
-                    normal[indice + 2] = nz * l;
-                }
-                else
-                {
-                    normal[indice] = 0;
-                    normal[indice + 1] = 1;
-                    normal[indice + 2] = 0;
-                }
-            }
-        }
+    glScalef(_scale, _scale, _scale);
+    Engine::translate(getPosition());
 
     /* The ground */
-    glPolygonMode (GL_FRONT_AND_BACK, GL_FILL);
+
     glDisable (GL_TEXTURE_2D);
 
     glColor3f (1, 0.9, 0.7);
     glBegin (GL_TRIANGLE_FAN);
+    glNormal3f(0, 1, 0);
     glVertex3f (-1 * widht, height, -1 * widht);
     glVertex3f (-1 * widht, height,  1 * widht);
     glVertex3f ( 1 * widht, height,  1 * widht);
     glVertex3f ( 1 * widht, height, -1 * widht);
     glEnd ();
-
     glEnable (GL_TEXTURE_2D);
-    glColor4f (1, 1, 1, 0.8);
-    glTranslatef (getPosition().x, getPosition().y, getPosition().z);
+    glBindTexture (GL_TEXTURE_2D, _texture);
+
+    glEnable (GL_BLEND);
+
+    GLfloat specular[] = {1, 1, 1, 1};
+
+    glLightfv(GL_LIGHT1, GL_SPECULAR, specular);
+    glLightf(GL_LIGHT1, GL_SHININESS, 128.0f);
+
+    glColor4f (1, 1, 1, 1.0);
+
     glEnableClientState (GL_NORMAL_ARRAY);
     glEnableClientState (GL_VERTEX_ARRAY);
-    glNormalPointer (GL_FLOAT, 0, normal);
-    glVertexPointer (3, GL_FLOAT, 0, surface);
+    glNormalPointer (GL_FLOAT, 0, _normal);
+    glVertexPointer (3, GL_FLOAT, 0, _surface);
 
+    for (size_t i = 0; i < RESOLUTION; i++)
+        glDrawArrays (GL_TRIANGLE_STRIP, i * _length, _length);
 
-    for (i = 0; i < RESOLUTION; i++)
-        glDrawArrays (GL_TRIANGLE_STRIP, i * length, length);
-    glDisable(GL_TEXTURE_2D);
+    //draw normals
 
-    if (blendEnabled)
-        glEnable(GL_BLEND);
-    /* End */
+    if (_drawNormals)
+    {
+        glDisable(GL_TEXTURE_2D);
+        Engine::setColor(0xffff000000);
+        glBegin (GL_LINES);
+
+        for (size_t j= 0; j < RESOLUTION; j++)
+            for (size_t i = 0; i <= RESOLUTION; i++)
+            {
+                indice = 6 * (i + j * (RESOLUTION + 1));
+                glVertex3fv (&(_surface[indice]));
+                glVertex3f (_surface[indice] + _normal[indice] / 50,
+                            _surface[indice + 1] + _normal[indice + 1] / 50,
+                            _surface[indice + 2] + _normal[indice + 2] / 50);
+            }
+        glEnd ();
+    }
+
+    glPopAttrib();
     glPopMatrix();
 }
 

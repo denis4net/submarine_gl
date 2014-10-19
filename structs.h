@@ -17,6 +17,7 @@ typedef std::vector<Vector2D> TexturesCoordArray;
 typedef std::vector<Vector3D> NormalsArary;
 typedef unsigned int Index;
 typedef std::vector<Index> IndicesArray;
+typedef unsigned int Color;
 
 struct MousePosition
 {

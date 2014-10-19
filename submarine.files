@@ -11,3 +11,8 @@ structs.h
 utils.h
 water.cpp
 water.h
+background.h
+background.cpp
+coordinateaxis.cpp
+coordinateaxis.h
+

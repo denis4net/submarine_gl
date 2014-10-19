@@ -15,10 +15,11 @@
 #define COLOR_BACKGROUND 0xAEF6FF
 #define COLOR_SUBMARINE 0x999999
 #define COLOR_ROCKET 0xFF222222
+
 #define SUBMARINE_GAP 0.01f
+#define SUBMARINE_DEPTH_GAP 0.01f
 
-
-#define ROCKET_Y_SPEED 0.01f
+#define ROCKET_Y_SPEED 0.03f
 #define ROCKET_X_SPEED 0.003f
 
 
@@ -26,11 +27,16 @@ class Drawable
 {
 protected:
     bool _shoudBeDestroyed = false;
+    bool _textureLoaded = false;
+    bool _drawNormals = false;
+
     const aiScene* _scene = nullptr;
 
     unsigned int _color = DEFAULT_DRAWABLE_COLOR;
     AngleRad _xRot, _yRot, _zRot;
     float _scale = 0.5f;
+    float _shininess = 0.1f;
+    float _specular = 0.1f;
 
     float _materialSpecular[4] = {1.0, 1.0, 1.0, 1.0};
 
@@ -41,25 +47,23 @@ protected:
     std::vector<int> _textures;
 public:
     Drawable(Point p = {0.0f, 0.0f, 0.0f}): _position(p) {};
-    Drawable() {}
-    Drawable(const char* path) {
-
-        loadFromFile(path);
-
-        _xRot = 0;
-        _yRot = 0;
-        _zRot = 0;
-    }
+    Drawable(const char* path);
 
     Point _position;
 
-
     void setColor(unsigned int color);
+    void setDrawNormals(bool drawNormals = true) { _drawNormals = drawNormals; }
+
     virtual void draw();
     virtual void tick() = 0;
     virtual bool isShouldBeDestroyed();
     virtual Point& getPosition();
+
+    void setShininess(float s) { _shininess = s; }
+    void setSpecular(float s) { _specular = s; }
 };
+
+
 
 class Rocket : public Drawable
 {
