@@ -65,7 +65,6 @@ void Drawable::setColor(unsigned int color)
 
 void Drawable::draw()
 {
-
     glPushMatrix();
     glPushAttrib(~0);
 
@@ -91,7 +90,11 @@ void Drawable::draw()
     glScalef(_scale, _scale, _scale);
 
     if (_textureLoaded)
+    {
          glEnable(GL_TEXTURE_2D);
+         GLint tex = _textures.front();
+         glBindTexture(GL_TEXTURE_2D, tex);
+    }
     else
         glDisable(GL_TEXTURE_2D);
 
@@ -108,11 +111,10 @@ void Drawable::draw()
             {
                 size_t vertexIndex = face.mIndices[i];
 
-                if (_textureLoaded && mesh->mTextureCoords  && !_textures.empty())
+                if (_textureLoaded && mesh->mTextureCoords && mesh->mNumUVComponents > 0 && !_textures.empty())
                 {
-                    GLint tex = _textures.front();
-                    glBindTexture(GL_TEXTURE_2D, tex);
-                    glTexCoord2f(mesh->mTextureCoords[0]->x, mesh->mTextureCoords[0]->y);
+                    if (mesh->mTextureCoords[0] != nullptr)
+                        glTexCoord2f(mesh->mTextureCoords[0]->x, mesh->mTextureCoords[0]->y);
                 }
                 glNormal3f(-mesh->mNormals[vertexIndex].x,
                            -mesh->mNormals[vertexIndex].y,
@@ -147,6 +149,7 @@ Rocket::Rocket(const char *path): Drawable(path), ticks(0)
 {
     setColor(0xFF111111);
     _scale = 0.015f;
+    setShininess(1.0f);
 }
 
 void Rocket::tick()
@@ -157,14 +160,12 @@ void Rocket::tick()
     getPosition().x -= ROCKET_X_SPEED;
 }
 
-
-
 Submarine::Submarine(const char *path): Drawable(path), _R(1.3f), _angle(0.0f) {
     setColor(0xFF333333);
     setShininess(0.8f);
     _scale = 0.8f;
     setSpecular(0.8f);
-    loadTextures("resources/submarine/texture.jpg");
+    loadTextures(SUBMARINE_TEXTURE_FILE);
     setShininess(100.0f);
     setSpecular(0.3f);
 }

@@ -5,6 +5,7 @@
 #include "coordinateaxis.h"
 #include "background.h"
 #include "ocean.h"
+#include "rock.h"
 
 #include <thread>
 #include <chrono>
@@ -83,6 +84,9 @@ void Scene::init()
 
     //CoordinateAxis* axis = new CoordinateAxis();
     //_drawables.push_back(axis);
+
+    Rock *rock = new Rock();
+    _drawables.push_back(rock);
 
     Water* water = new Water();
     _drawables.push_back(water);
@@ -263,9 +267,9 @@ void Scene::fog()
     if (underWater)
     {
         glFogfv(GL_FOG_COLOR, backgroundColor);
-        glFogf(GL_FOG_START, 3.0f);
-        glFogf(GL_FOG_END, 8.0f);
-        glFogi(GL_FOG_MODE, GL_EXP);
+        glFogf(GL_FOG_START, 1.0f);
+        glFogf(GL_FOG_END, 4.0f);
+        glFogi(GL_FOG_MODE, GL_LINEAR);
     }
     else
     {

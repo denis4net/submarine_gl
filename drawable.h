@@ -22,6 +22,8 @@
 #define ROCKET_Y_SPEED 0.03f
 #define ROCKET_X_SPEED 0.003f
 
+#define ROCKET_TEXTURE_FILE "resources/rocket.jpg"
+#define SUBMARINE_TEXTURE_FILE "resources/submarine/texture.jpg"
 
 class Drawable
 {

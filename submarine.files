@@ -17,3 +17,5 @@ coordinateaxis.cpp
 coordinateaxis.h
 ocean.cpp
 ocean.h
+rock.cpp
+rock.h
