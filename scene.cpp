@@ -20,11 +20,8 @@ static time_t  _launchTime;
 static bool _waterEnabled = true;
 static MousePosition _lastPosition {0, 0, 0};
 
-
-
-const static float disableColor[] = { 0, 0, 0, 0};
-//89a4be
-const static GLfloat background_color[] = {0x89/255.0, 0xA4/255.0, 0xBE/255.0, 0xff};
+const static GLfloat atmosphereFogColor[] = {0.7, 0.7, 0.7};
+const static GLfloat backgroundColor[] = {0x89/255.0, 0xA4/255.0, 0xBE/255.0, 0xff};
 
 static struct
 {
@@ -35,7 +32,7 @@ static struct
 
 void Scene::init()
 {
-    glClearColor(background_color[0], background_color[1], background_color[2], background_color[3]);
+    glClearColor(backgroundColor[0], backgroundColor[1], backgroundColor[2], backgroundColor[3]);
 
     //glEnable(GL_CULL_FACE);
     //glFrontFace(GL_CCW);
@@ -52,6 +49,8 @@ void Scene::init()
     glEnable(GL_LIGHTING);
     glDisable(GL_LIGHT0);
     glEnable(GL_LIGHT1);
+
+    glEnable(GL_FOG);
 
     glEnable(GL_POLYGON_SMOOTH);
 
@@ -82,8 +81,8 @@ void Scene::init()
     Background *background = new Background();
     _drawables.push_back(background);
 
-    CoordinateAxis* axis = new CoordinateAxis();
-    _drawables.push_back(axis);
+    //CoordinateAxis* axis = new CoordinateAxis();
+    //_drawables.push_back(axis);
 
     Water* water = new Water();
     _drawables.push_back(water);
@@ -116,14 +115,6 @@ void Scene::setLighting()
     glLightfv(GL_LIGHT1, GL_POSITION, light_position);
     glLightfv(GL_LIGHT1, GL_SPECULAR, light_specular);
 
-    glPopMatrix();
-
-    glPushMatrix();
-
-    glFogfv(GL_FOG_COLOR, background_color);
-    glFogf(GL_FOG_START, 3.0f);
-    glFogf(GL_FOG_END, 8.0f);
-    glFogi(GL_FOG_MODE, GL_EXP);
     glPopMatrix();
 }
 
@@ -267,9 +258,20 @@ void Scene::mouseClick(int button, int state, int x, int y)
 
 void Scene::fog()
 {
-    bool fog = _camera.eye.toCartesianPoint().y < WATER_FOG_LEVEL;
-    if (fog)
-        glEnable(GL_FOG);
+    bool underWater = _camera.eye.toCartesianPoint().y < WATER_FOG_LEVEL;
+
+    if (underWater)
+    {
+        glFogfv(GL_FOG_COLOR, backgroundColor);
+        glFogf(GL_FOG_START, 3.0f);
+        glFogf(GL_FOG_END, 8.0f);
+        glFogi(GL_FOG_MODE, GL_EXP);
+    }
     else
-        glDisable(GL_FOG);
+    {
+        glFogfv(GL_FOG_COLOR, atmosphereFogColor);
+        glFogf(GL_FOG_START, 3.5f);
+        glFogf(GL_FOG_END, 7.0f);
+        glFogi(GL_FOG_MODE, GL_LINEAR);
+    }
 }
