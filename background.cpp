@@ -1,10 +1,26 @@
 #include "background.h"
-#include "engine.h"
 
-Background::Background(): Drawable({0, 0, 0})
+Background::Background(): Drawable({0, -1.0f, 0})
 {
     loadTextures(WATER_TEXTURE_FILE);
     setColor(0xf0ffffff);
+
+    _quadric = gluNewQuadric();
+    if (_quadric == nullptr)
+        return;
+
+
+    gluQuadricNormals(_quadric, GLU_FLAT);
+    gluQuadricDrawStyle(_quadric, GLU_FILL);
+    gluQuadricOrientation(_quadric, GLU_INSIDE);
+    gluQuadricTexture(_quadric, GL_TRUE);
+
+}
+
+Background::~Background()
+{
+    if (_quadric != nullptr)
+        gluDeleteQuadric(_quadric);
 }
 
 void Background::draw()
@@ -12,24 +28,18 @@ void Background::draw()
     glPushMatrix();
     glPushAttrib(~0);
 
-    glDisable(GL_BLEND);
-    glEnable(GL_TEXTURE_2D);
-
-    glBindTexture(GL_TEXTURE_2D, _textures[0]);
-
+    glRotatef(90, 1, 0, 0);
     Engine::translate(getPosition());
     Engine::setColor(_color);
 
-    GLUquadric* quadric = gluNewQuadric();
-    if (quadric == nullptr)
-        return;
+    glDisable(GL_BLEND);
+    glEnable(GL_TEXTURE_2D);
 
-    gluQuadricNormals(quadric, GLU_SMOOTH);
-    gluQuadricDrawStyle(quadric, GLU_FILL);
-    gluQuadricOrientation(quadric, GLU_INSIDE);
-    gluQuadricTexture(quadric, GL_TRUE);
+    assert(!_textures.empty());
 
-    gluSphere(quadric, 5, 100, 100);
+    glBindTexture(GL_TEXTURE_2D, _textures.front());
+
+    gluSphere(_quadric, BACKGROUND_SPHERE_RADIUS, 100, 100);
 
     glPopAttrib();
     glPopMatrix();

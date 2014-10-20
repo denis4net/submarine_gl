@@ -37,6 +37,7 @@ protected:
     float _scale = 0.5f;
     float _shininess = 0.1f;
     float _specular = 0.1f;
+    int _blendingValue = 0xff;
 
     float _materialSpecular[4] = {1.0, 1.0, 1.0, 1.0};
 

@@ -32,7 +32,7 @@ bool Drawable::loadFromFile(const char *path)
 
     if (_scene == nullptr)
     {
-        ERROR("Can't load modle \"%s\": %s", path, _importer.GetErrorString());
+        ERROR("Can't load model \"%s\": %s", path, _importer.GetErrorString());
         return false;
     }
     return true;
@@ -50,7 +50,7 @@ bool Drawable::loadTextures(const char *filename)
 
     if (tex2D == 0)
     {
-        ERROR("Texture \"%s\" load error", filename);
+        ERROR("Texture \"%s\" load error: %s", filename, SOIL_last_result());
     }
     else
         _textures.push_back(tex2D);
@@ -69,7 +69,11 @@ void Drawable::draw()
     glPushMatrix();
     glPushAttrib(~0);
 
-    glDisable(GL_BLEND);
+    if (_blendingValue == 0xff)
+        glDisable(GL_BLEND);
+    else
+        glEnable(GL_BLEND);
+
     glDisable(GL_CULL_FACE);
 
     Engine::setColor(_color);
@@ -169,6 +173,9 @@ void Submarine::tick()
 {
     _position.x = _R * sin(_angle);
     _position.z = _R * cos(_angle);
+
+    _blendingValue = - _position.y;
+
     _yRot = -(270-(_angle*180/M_PI));
     _angle += 0.01;
     setShininess(128.0f);

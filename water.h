@@ -4,7 +4,7 @@
 #include "drawable.h"
 
 #define DEFAULT_WATER_LEVEL 0.0f
-#define WATER_FOG_LEVEL -0.1f;
+#define WATER_FOG_LEVEL -0.04f;
 #define	RESOLUTION 64
 
 

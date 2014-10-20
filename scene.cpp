@@ -4,6 +4,7 @@
 #include "water.h"
 #include "coordinateaxis.h"
 #include "background.h"
+#include "ocean.h"
 
 #include <thread>
 #include <chrono>
@@ -22,11 +23,12 @@ static MousePosition _lastPosition {0, 0, 0};
 
 
 const static float disableColor[] = { 0, 0, 0, 0};
-const static GLfloat background_color[] = { 0xae/255.0, 0xf6/255.0, 0xff/255, 0};
+//89a4be
+const static GLfloat background_color[] = {0x89/255.0, 0xA4/255.0, 0xBE/255.0, 0xff};
 
 static struct
 {
-    SpherePoint eye = {2, 0, 0};
+    SpherePoint eye = {3, 1, 1};
     Point center = {0, 0, 0};
     Point up = {0, 1, 0};
 } _camera;

@@ -298,7 +298,7 @@ void Water::draw()
     Engine::translate(getPosition());
 
     /* The ground */
-
+#if 0
     glDisable (GL_TEXTURE_2D);
 
     glColor3f (1, 0.9, 0.7);
@@ -309,9 +309,10 @@ void Water::draw()
     glVertex3f ( 1 * widht, height,  1 * widht);
     glVertex3f ( 1 * widht, height, -1 * widht);
     glEnd ();
+#endif
+
     glEnable (GL_TEXTURE_2D);
     glBindTexture (GL_TEXTURE_2D, _texture);
-
     glEnable (GL_BLEND);
 
     GLfloat specular[] = {1, 1, 1, 1};
