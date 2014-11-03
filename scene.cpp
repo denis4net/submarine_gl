@@ -24,6 +24,24 @@ static MousePosition _lastPosition {0, 0, 0};
 const static GLfloat atmosphereFogColor[] = {0.7, 0.7, 0.7};
 const static GLfloat backgroundColor[] = {0x89/255.0, 0xA4/255.0, 0xBE/255.0, 0xff};
 
+void gltGetPlainEquation(glm::vec3& v0, glm::vec3& v1, glm::vec3& v2, glm::vec4& plainEquation)
+{
+
+}
+
+/*
+void glMakeShadowMatrix(glm::vec3 vPoints[3], glm::vec4 vLightPos, glm::mat4x4 destMat)
+{
+   glm::vec4 vPlaneEquation;
+   GLfloat dot;
+
+   gltGetPlainEquation(vPoints[0], vPoints[1], vPoints[2], vPlaneEquation);
+
+   //scalar product
+   dot = vPlaneEquation*vLightPos;
+
+}
+*/
 static struct
 {
     SpherePoint eye = {3, 1, 1};
@@ -76,8 +94,9 @@ void Scene::init()
 
     // create drawable\renderable objects and add they to container
 
-    _submarine = new Submarine("resources/submarine.obj");
+    _submarine = new Submarine();
     _drawables.push_back(_submarine);
+    //_drawables.push_back(new SubmarineShadow(_submarine));
 
     Background *background = new Background();
     _drawables.push_back(background);
@@ -278,4 +297,9 @@ void Scene::fog()
         glFogf(GL_FOG_END, 7.0f);
         glFogi(GL_FOG_MODE, GL_LINEAR);
     }
+}
+
+
+void Scene::drawShadowModel(Drawable *a)
+{
 }

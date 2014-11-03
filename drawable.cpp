@@ -68,7 +68,7 @@ void Drawable::draw()
     glPushMatrix();
     glPushAttrib(~0);
 
-    if (_blendingValue == 0xff)
+    if (!_blending)
         glDisable(GL_BLEND);
     else
         glEnable(GL_BLEND);
@@ -160,7 +160,7 @@ void Rocket::tick()
     getPosition().x -= ROCKET_X_SPEED;
 }
 
-Submarine::Submarine(const char *path): Drawable(path), _R(1.3f), _angle(0.0f) {
+Submarine::Submarine(): Drawable(SUBMARINE_OBJ), _R(1.3f), _angle(0.0f) {
     setColor(0xFF333333);
     setShininess(0.8f);
     _scale = 0.8f;
@@ -170,12 +170,15 @@ Submarine::Submarine(const char *path): Drawable(path), _R(1.3f), _angle(0.0f) {
     setSpecular(0.3f);
 }
 
+void Submarine::draw()
+{
+    Drawable::draw();
+}
+
 void Submarine::tick()
 {
     _position.x = _R * sin(_angle);
     _position.z = _R * cos(_angle);
-
-    _blendingValue = - _position.y;
 
     _yRot = -(270-(_angle*180/M_PI));
     _angle += 0.01;
@@ -191,4 +194,20 @@ bool Submarine::isActivated()
 void Submarine::activate()
 {
     _isActivated = true;
+}
+
+
+void SubmarineShadow::draw()
+{
+    glPushMatrix();
+    //glRotatef(90, 0, 1.0, 0);
+    //glTranslatef(0, -2, 0);
+    Submarine::draw();
+
+    glPopMatrix();
+}
+
+void SubmarineShadow::tick()
+{
+    getPosition() = _o->getPosition();
 }

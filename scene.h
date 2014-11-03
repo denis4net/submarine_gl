@@ -2,6 +2,7 @@
 #define SCENE_H
 
 #include "structs.h"
+#include "drawable.h"
 #include "engine.h"
 
 namespace Scene
@@ -18,6 +19,7 @@ namespace Scene
     void water();
     void fog();
 
+    void drawShadowModel(Drawable* a);
     void mouseMove(int x, int y);
     void mouseClick(int button, int state, int x, int y);
     void zoomIn();

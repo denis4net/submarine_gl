@@ -32,7 +32,6 @@ void Background::draw()
     Engine::translate(getPosition());
     Engine::setColor(_color);
 
-    glDisable(GL_BLEND);
     glEnable(GL_TEXTURE_2D);
 
     assert(!_textures.empty());

@@ -24,6 +24,7 @@
 
 #define ROCKET_TEXTURE_FILE "resources/rocket.jpg"
 #define SUBMARINE_TEXTURE_FILE "resources/submarine/texture.jpg"
+#define SUBMARINE_OBJ "resources/submarine.obj"
 
 class Drawable
 {
@@ -39,12 +40,12 @@ protected:
     float _scale = 0.5f;
     float _shininess = 0.1f;
     float _specular = 0.1f;
-    int _blendingValue = 0xff;
 
     float _materialSpecular[4] = {1.0, 1.0, 1.0, 1.0};
 
     bool loadFromFile(const char* path);
     bool loadTextures(const char* filename);
+    bool _blending = false;
 
     Assimp::Importer _importer;
     std::vector<int> _textures;
@@ -84,11 +85,21 @@ class Submarine: public Drawable
     float _R;
     AngleRad _angle;
 public:
-    Submarine(const char* path);
+    Submarine();
+    void draw();
     virtual void tick() override;
-
     virtual bool isActivated();
     virtual void activate();
+};
+
+class SubmarineShadow: public Submarine
+{
+protected:
+    Drawable *_o;
+  public:
+    SubmarineShadow(Drawable* o): Submarine(), _o(o) {}
+    void draw();
+    void tick();
 };
 
 #endif // DRAWABLE_H
