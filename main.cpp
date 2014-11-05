@@ -9,7 +9,7 @@
 
 int main(int argc, char **argv)
 {
-    Engine::init(argc, argv, Scene::drawScene);
+    Engine::init(argc, argv, Scene::render);
     Scene::init();
     Engine::loop();
     return 0;

@@ -22,6 +22,8 @@ namespace Engine
     void drawLine(Point start, Point end, int width = 1, uint color = 0xFF000000);
     void setColor(uint color);
     void translate(Point position);
+    int getWidht();
+    int getHeight();
 
     void InitGL(int Width, int Height);
     void addKeyHandler(KeyHandler handler);

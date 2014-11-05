@@ -24,30 +24,32 @@ static MousePosition _lastPosition {0, 0, 0};
 const static GLfloat atmosphereFogColor[] = {0.7, 0.7, 0.7};
 const static GLfloat backgroundColor[] = {0x89/255.0, 0xA4/255.0, 0xBE/255.0, 0xff};
 
-void gltGetPlainEquation(glm::vec3& v0, glm::vec3& v1, glm::vec3& v2, glm::vec4& plainEquation)
-{
+GLfloat light_color[] = {1.0f, 1.0f, 0.7f, 1.0};
+GLfloat light_position[] = {0, 1.5, 0, 1};
+GLfloat light_specular[] = {1, 1, 1, 1};
+Point light = {0, 1.5, 0};
+Point center = {0, 0, 0};
 
-}
 
-/*
-void glMakeShadowMatrix(glm::vec3 vPoints[3], glm::vec4 vLightPos, glm::mat4x4 destMat)
-{
-   glm::vec4 vPlaneEquation;
-   GLfloat dot;
+float params1[4] = { 1, 0, 0, 0 };
+float params2[4] = { 0, 1, 0, 0 };
+float params3[4] = { 0, 0, 1, 0 };
+float params4[4] = { 0, 0, 0, 1 };
 
-   gltGetPlainEquation(vPoints[0], vPoints[1], vPoints[2], vPlaneEquation);
+static GLuint shadowMap, diffuseMap, ambientMap;
+static int width, height;
 
-   //scalar product
-   dot = vPlaneEquation*vLightPos;
+int shadowMapSize = 1024;
+float mv[16];
+float pr[16];
 
-}
-*/
 static struct
 {
     SpherePoint eye = {3, 1, 1};
     Point center = {0, 0, 0};
     Point up = {0, 1, 0};
 } _camera;
+
 
 void Scene::init()
 {
@@ -61,15 +63,11 @@ void Scene::init()
 
     glClearDepth(1.0);
     glDepthFunc(GL_LESS);
-    glShadeModel(GL_SMOOTH);
+    //glShadeModel(GL_SMOOTH);
 
     glEnable(GL_DEPTH_TEST);
 
-    glEnable(GL_LIGHTING);
-    glDisable(GL_LIGHT0);
-    glEnable(GL_LIGHT1);
-
-    glEnable(GL_FOG);
+    //glEnable(GL_FOG);
 
     glEnable(GL_POLYGON_SMOOTH);
 
@@ -79,18 +77,19 @@ void Scene::init()
     glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
     glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 
-    glDisable(GL_BLEND);
-
+    glEnable(GL_LIGHTING);
+    glDisable(GL_LIGHT0);
+    glEnable(GL_LIGHT1);
     glEnable(GL_COLOR_MATERIAL);
-    glColorMaterial(GL_FRONT, GL_DIFFUSE);
+    glColorMaterial(GL_FRONT_AND_BACK, GL_DIFFUSE);
 
-    glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, GL_SEPARATE_SPECULAR_COLOR);
-    glEnable(GL_COLOR_SUM);
+    //lLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, GL_SEPARATE_SPECULAR_COLOR);
+    //glEnable(GL_COLOR_SUM);
 
-    glEnable(GL_NORMALIZE);
-    glEnable(GL_RESCALE_NORMAL);
+   // glEnable(GL_NORMALIZE);
+    //glEnable(GL_RESCALE_NORMAL);
 
-    glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+    //glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
 
     // create drawable\renderable objects and add they to container
 
@@ -104,11 +103,11 @@ void Scene::init()
     //CoordinateAxis* axis = new CoordinateAxis();
     //_drawables.push_back(axis);
 
-    Rock *rock = new Rock();
-    _drawables.push_back(rock);
+    //Rock *rock = new Rock();
+    //_drawables.push_back(rock);
 
-    Water* water = new Water();
-    _drawables.push_back(water);
+    //Water* water = new Water();
+    //_drawables.push_back(water);
 
     //register keyboard handlers
     Engine::addKeyHandler({' ', launchRocket});
@@ -120,6 +119,8 @@ void Scene::init()
     glutMotionFunc(mouseMove);
     glutMouseFunc(mouseClick);
 
+    initShadow();
+
     //run coord update thread
     new std::thread(ticker);
 }
@@ -127,38 +128,31 @@ void Scene::init()
 
 void Scene::setLighting()
 {
-    glPushMatrix();
-    glTranslatef(0, 1, 0);
-
-    GLfloat light_color[] = {1.0f, 1.0f, 0.7f, 1.0};
-    GLfloat light_position[] = {0, 0, 0, 1};
-    GLfloat light_specular[] = {1, 1, 1, 1};
-
     glLightfv(GL_LIGHT1, GL_DIFFUSE, light_color);
     glLightfv(GL_LIGHT1, GL_POSITION, light_position);
     glLightfv(GL_LIGHT1, GL_SPECULAR, light_specular);
-
-    glPopMatrix();
 }
 
 
-void Scene::drawScene()
+void Scene::reshape ( int w, int h )
 {
-    glClearStencil(0);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);		// Clear The Screen And The Depth Buffer
-    glLoadIdentity();
+    glViewport     ( 0, 0, (GLsizei)w, (GLsizei)h );
+    glMatrixMode   ( GL_PROJECTION );
+    glLoadIdentity ();
 
-    Point eyePoint = _camera.eye.toCartesianPoint();
-    gluLookAt(eyePoint.x, eyePoint.y, eyePoint.z,
-              _camera.center.x, _camera.center.y, _camera.center.z,
-              _camera.up.x, _camera.up.y, _camera.up.z);
+    Point eye = _camera.eye.toCartesianPoint();
+    gluPerspective( 60.0, (GLfloat)w/(GLfloat)h, 0.1, 10.0 );
+    gluLookAt      ( eye.x, eye.y, eye.z,    		// eye
+                     _camera.center.x, _camera.center.y, _camera.center.z,  // center
+                     0, 1, 0 );              		// up
 
-    fog();
-    drawObjects();
-    setLighting();
+    glMatrixMode   ( GL_MODELVIEW );
+    glLoadIdentity ();
 
-    glutSwapBuffers();
+    width  = w;
+    height = h;
 }
+
 
 void Scene::ticker()
 {
@@ -205,11 +199,13 @@ void Scene::launchRocket()
     }
 }
 
+
 void Scene::up()
 {
     if (_submarine->getPosition().y < DEFAULT_WATER_LEVEL)
         _submarine->getPosition().y += SUBMARINE_DEPTH_GAP;
 }
+
 
 void Scene::down()
 {
@@ -300,6 +296,194 @@ void Scene::fog()
 }
 
 
-void Scene::drawShadowModel(Drawable *a)
+void Scene::render()
 {
+
+    renderToShadowMap ();						// compute shadow map
+
+    // clear buffers
+    glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+
+    reshape ( Engine::getWidht(), Engine::getHeight() );					// setup modelview and projection
+
+    glMatrixMode   ( GL_MODELVIEW );
+    glPushMatrix   ();
+
+
+    // setup shadowing
+    glActiveTextureARB ( GL_TEXTURE1_ARB );
+    glBindTexture      ( GL_TEXTURE_2D, shadowMap );
+
+    glEnable ( GL_TEXTURE_2D    );
+    glEnable ( GL_TEXTURE_GEN_S );
+    glEnable ( GL_TEXTURE_GEN_T );
+    glEnable ( GL_TEXTURE_GEN_R );
+    glEnable ( GL_TEXTURE_GEN_Q );
+
+    glTexGenfv ( GL_S, GL_EYE_PLANE, params1 );
+    glTexGenfv ( GL_T, GL_EYE_PLANE, params2 );
+    glTexGenfv ( GL_R, GL_EYE_PLANE, params3 );
+    glTexGenfv ( GL_Q, GL_EYE_PLANE, params4 );
+
+    glTexEnvi ( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
+
+    // set correct texcoord transform
+    glMatrixMode  ( GL_TEXTURE );
+    glPushMatrix  ();
+
+    glLoadIdentity ();
+    glTranslatef   ( 0.5, 0.5, 0.5 );     // remap from [-1,1]^2 to [0,1]^2
+    glScalef       ( 0.5, 0.5, 0.5 );
+    glMultMatrixf  ( pr );
+    glMultMatrixf  ( mv );
+
+    glActiveTextureARB ( GL_TEXTURE0_ARB );
+
+    renderScene ();
+    renderPlane();
+
+    glActiveTextureARB ( GL_TEXTURE1_ARB );
+    glDisable          ( GL_TEXTURE_2D   );
+    glActiveTextureARB ( GL_TEXTURE0_ARB );
+
+    // draw the light
+    glMatrixMode ( GL_MODELVIEW );
+    glPopMatrix  ();
+    glPushMatrix ();
+
+    glTranslatef       ( light_position[0], light_position[1], light_position[2]);
+    glActiveTextureARB ( GL_TEXTURE0_ARB );
+    glDisable          ( GL_TEXTURE_2D );
+    glutSolidSphere    ( 0.1f, 15, 15 );
+    glPopMatrix        ();
+
+    glMatrixMode ( GL_TEXTURE );
+    glPopMatrix  ();
+
+    glMatrixMode ( GL_MODELVIEW );
+
+    glutSwapBuffers ();
+}
+
+
+void Scene::initShadow() //OK
+{
+    glClearStencil ( 0 );
+    glEnable       ( GL_DEPTH_TEST );
+    glDepthFunc    ( GL_LESS );
+
+    glHint ( GL_POLYGON_SMOOTH_HINT,         GL_NICEST );
+    glHint ( GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST );
+
+    glGenTextures   ( 1, &shadowMap );
+    glBindTexture   ( GL_TEXTURE_2D, shadowMap );
+    glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
+    glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
+    glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+    glTexParameteri ( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
+
+    glTexParameteri  ( GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE_ARB, GL_COMPARE_R_TO_TEXTURE_ARB );
+    glTexParameteri  ( GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC_ARB, GL_LEQUAL );
+
+    glTexGeni        ( GL_S, GL_TEXTURE_GEN_MODE, GL_EYE_LINEAR );
+    glTexGeni        ( GL_T, GL_TEXTURE_GEN_MODE, GL_EYE_LINEAR );
+    glTexGeni        ( GL_R, GL_TEXTURE_GEN_MODE, GL_EYE_LINEAR );
+    glTexGeni        ( GL_Q, GL_TEXTURE_GEN_MODE, GL_EYE_LINEAR );
+
+    glTexImage2D     ( GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, shadowMapSize, shadowMapSize, 0,
+                       GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, NULL );
+}
+
+
+void Scene::renderToShadowMap() //OK
+{
+    glColorMask ( GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE );
+    glDisable   ( GL_TEXTURE_2D );
+
+    glEnable        ( GL_POLYGON_OFFSET_FILL );
+    glPolygonOffset ( 4, 4 );
+
+    // setup projection
+    glViewport ( 0, 0, shadowMapSize, shadowMapSize );
+    glClear    ( GL_DEPTH_BUFFER_BIT );
+
+    glMatrixMode   ( GL_PROJECTION );
+    glLoadIdentity ();
+
+    gluPerspective ( 120, 1, 0.1, 60 );
+    gluLookAt      ( light.x, light.y, light.z,		// eye
+                     center.x, center.x, center.z,	// center
+                     0, 0, 1 );						// up
+
+    glMatrixMode   ( GL_MODELVIEW );
+    glLoadIdentity ();
+
+    // get modelview and projections matrices
+    glGetFloatv ( GL_MODELVIEW_MATRIX,  mv );
+    glGetFloatv ( GL_PROJECTION_MATRIX, pr );
+
+    // now render scene from light position
+    renderCube();
+    _submarine->draw();
+
+    // copy depth map into texture
+    glBindTexture    ( GL_TEXTURE_2D, shadowMap );
+    glCopyTexImage2D ( GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, 0, 0, shadowMapSize, shadowMapSize, 0 );
+
+    // restore state
+    glDisable        ( GL_POLYGON_OFFSET_FILL );
+    glColorMask      ( GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE );
+    glEnable         ( GL_TEXTURE_2D );
+}
+
+
+void Scene::renderScene()
+{
+    glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+
+                                                    // draw unlit geometry
+        glMatrixMode       ( GL_MODELVIEW );
+        glColor3f          ( 1.0, 0.5, 0.5 );
+        glActiveTextureARB ( GL_TEXTURE0_ARB );
+
+        glMatrixMode ( GL_MODELVIEW );
+        renderCube();
+}
+
+
+void Scene::renderCube()
+{
+    glPushMatrix();
+        glColor3f(0, 0, 1);
+        glTranslatef(0, 1, 0);
+        glutSolidCube(0.3f);
+    glPopMatrix();
+
+
+    glPushMatrix();
+        glColor3f(1, 0, 0);
+        glTranslatef(0, 1, 0.4);
+        glutSolidCube(0.3f);
+    glPopMatrix();
+
+
+    glPushMatrix();
+        glColor3f(1, 1, 0);
+        glTranslatef(0, 1, -0.4);
+        glutSolidCube(0.3f);
+    glPopMatrix();
+}
+
+
+void Scene::renderPlane()
+{
+    glPushMatrix();
+        glColor3f(0, 1, 0);
+        glBegin(GL_QUADS);
+            glVertex3f(-3, 0, -3);
+            glVertex3f(-3, 0, 3);
+            glVertex3f(3, 0, 3);
+            glVertex3f(3, 0, -3);
+        glEnd();
+    glPopMatrix();
 }

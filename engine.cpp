@@ -16,6 +16,7 @@
 static int window;
 static void (*_drawCallback)();
 static std::list<KeyHandler> _keyHandlers;
+static int widht, height;
 
 /* The function called whenever a key is pressed. */
 static void keyPressed(unsigned char key, int x, int y)
@@ -55,6 +56,9 @@ static void ReSizeGLScene(int Width, int Height)
 
     gluPerspective(45.0f,(GLfloat)Width/(GLfloat)Height,0.1f,100.0f);
     glMatrixMode(GL_MODELVIEW);
+
+    widht = Width;
+    height = Height;
 }
 
 
@@ -179,4 +183,16 @@ void Engine::setColor(uint color)
 void Engine::translate(Point position)
 {
     glTranslatef(position.x, position.y, position.z);
+}
+
+
+int Engine::getWidht()
+{
+    return widht;
+}
+
+
+int Engine::getHeight()
+{
+    return height;
 }

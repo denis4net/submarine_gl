@@ -276,7 +276,7 @@ void Water::draw()
     generate();
 
     unsigned int indice;
-    float height = -0.5;
+    float height = -0.2f;
     int widht = 1;
 
     glPushMatrix();
@@ -298,7 +298,7 @@ void Water::draw()
     Engine::translate(getPosition());
 
     /* The ground */
-#if 0
+#if 1
     glDisable (GL_TEXTURE_2D);
 
     glColor3f (1, 0.9, 0.7);
