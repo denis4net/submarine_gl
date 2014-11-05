@@ -147,9 +147,9 @@ Point &Drawable::getPosition()
 
 Rocket::Rocket(const char *path): Drawable(path), ticks(0)
 {
-    setColor(0xFF111111);
+    setColor(0xFF000000);
     _scale = 0.015f;
-    setShininess(1.0f);
+    setShininess(0);
 }
 
 void Rocket::tick()
@@ -162,12 +162,10 @@ void Rocket::tick()
 
 Submarine::Submarine(): Drawable(SUBMARINE_OBJ), _R(1.3f), _angle(0.0f) {
     setColor(0xFF333333);
-    setShininess(0.8f);
+    setShininess(0);
     _scale = 0.8f;
-    setSpecular(0.8f);
+    setSpecular(0);
     loadTextures(SUBMARINE_TEXTURE_FILE);
-    setShininess(100.0f);
-    setSpecular(0.3f);
 }
 
 void Submarine::draw()
@@ -196,18 +194,3 @@ void Submarine::activate()
     _isActivated = true;
 }
 
-
-void SubmarineShadow::draw()
-{
-    glPushMatrix();
-    //glRotatef(90, 0, 1.0, 0);
-    //glTranslatef(0, -2, 0);
-    Submarine::draw();
-
-    glPopMatrix();
-}
-
-void SubmarineShadow::tick()
-{
-    getPosition() = _o->getPosition();
-}

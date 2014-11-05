@@ -21,27 +21,26 @@ static time_t  _launchTime;
 static bool _waterEnabled = true;
 static MousePosition _lastPosition {0, 0, 0};
 
-const static GLfloat atmosphereFogColor[] = {0.7, 0.7, 0.7};
+const static GLfloat atmosphereFogColor[] = {0.5, 0.5, 0.5};
 const static GLfloat backgroundColor[] = {0x89/255.0, 0xA4/255.0, 0xBE/255.0, 0xff};
 
-GLfloat light_color[] = {1.0f, 1.0f, 0.7f, 1.0};
-GLfloat light_position[] = {0, 1.5, 0, 1};
-GLfloat light_specular[] = {1, 1, 1, 1};
-Point light = {0, 1.5, 0};
-Point center = {0, 0, 0};
+static GLfloat light_color[] = {1.0f, 1.0f, 0.7f, 1.0};
+static GLfloat light_position[] = {0, 2, 0, 1};
+static GLfloat light_specular[] = {1, 1, 1, 1};
+static Point light = {0, 2.0, 0};
+static Point center = {0, 0, 0};
 
-
-float params1[4] = { 1, 0, 0, 0 };
-float params2[4] = { 0, 1, 0, 0 };
-float params3[4] = { 0, 0, 1, 0 };
-float params4[4] = { 0, 0, 0, 1 };
+static float params1[4] = { 1, 0, 0, 0 };
+static float params2[4] = { 0, 1, 0, 0 };
+static float params3[4] = { 0, 0, 1, 0 };
+static float params4[4] = { 0, 0, 0, 1 };
 
 static GLuint shadowMap, diffuseMap, ambientMap;
 static int width, height;
 
-int shadowMapSize = 1024;
-float mv[16];
-float pr[16];
+static int shadowMapSize = 512;
+static float mv[16];
+static float pr[16];
 
 static struct
 {
@@ -58,16 +57,13 @@ void Scene::init()
     //glEnable(GL_CULL_FACE);
     //glFrontFace(GL_CCW);
 
-    //glStencilFunc(GL_ALWAYS, 1, 0xFFFFFFFF);
-    //glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
-
     glClearDepth(1.0);
     glDepthFunc(GL_LESS);
-    //glShadeModel(GL_SMOOTH);
+    glShadeModel(GL_SMOOTH);
 
     glEnable(GL_DEPTH_TEST);
 
-    //glEnable(GL_FOG);
+    glEnable(GL_FOG);
 
     glEnable(GL_POLYGON_SMOOTH);
 
@@ -80,22 +76,22 @@ void Scene::init()
     glEnable(GL_LIGHTING);
     glDisable(GL_LIGHT0);
     glEnable(GL_LIGHT1);
+
     glEnable(GL_COLOR_MATERIAL);
     glColorMaterial(GL_FRONT_AND_BACK, GL_DIFFUSE);
 
-    //lLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, GL_SEPARATE_SPECULAR_COLOR);
-    //glEnable(GL_COLOR_SUM);
+    //glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, GL_SEPARATE_SPECULAR_COLOR);
+    glEnable(GL_COLOR_SUM);
 
-   // glEnable(GL_NORMALIZE);
-    //glEnable(GL_RESCALE_NORMAL);
+    glEnable(GL_NORMALIZE);
+    glEnable(GL_RESCALE_NORMAL);
 
-    //glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+    glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
 
     // create drawable\renderable objects and add they to container
 
     _submarine = new Submarine();
     _drawables.push_back(_submarine);
-    //_drawables.push_back(new SubmarineShadow(_submarine));
 
     Background *background = new Background();
     _drawables.push_back(background);
@@ -103,11 +99,11 @@ void Scene::init()
     //CoordinateAxis* axis = new CoordinateAxis();
     //_drawables.push_back(axis);
 
-    //Rock *rock = new Rock();
-    //_drawables.push_back(rock);
+    Rock *rock = new Rock();
+    _drawables.push_back(rock);
 
-    //Water* water = new Water();
-    //_drawables.push_back(water);
+    Water* water = new Water();
+    _drawables.push_back(water);
 
     //register keyboard handlers
     Engine::addKeyHandler({' ', launchRocket});
@@ -282,15 +278,15 @@ void Scene::fog()
     if (underWater)
     {
         glFogfv(GL_FOG_COLOR, backgroundColor);
-        glFogf(GL_FOG_START, 1.0f);
+        glFogf(GL_FOG_START, 0.2f);
         glFogf(GL_FOG_END, 4.0f);
         glFogi(GL_FOG_MODE, GL_LINEAR);
     }
     else
     {
         glFogfv(GL_FOG_COLOR, atmosphereFogColor);
-        glFogf(GL_FOG_START, 3.5f);
-        glFogf(GL_FOG_END, 7.0f);
+        glFogf(GL_FOG_START, 0.5f);
+        glFogf(GL_FOG_END, 3.0f);
         glFogi(GL_FOG_MODE, GL_LINEAR);
     }
 }
@@ -298,7 +294,6 @@ void Scene::fog()
 
 void Scene::render()
 {
-
     renderToShadowMap ();						// compute shadow map
 
     // clear buffers
@@ -340,7 +335,8 @@ void Scene::render()
     glActiveTextureARB ( GL_TEXTURE0_ARB );
 
     renderScene ();
-    renderPlane();
+    setLighting();
+    fog();
 
     glActiveTextureARB ( GL_TEXTURE1_ARB );
     glDisable          ( GL_TEXTURE_2D   );
@@ -423,7 +419,7 @@ void Scene::renderToShadowMap() //OK
     glGetFloatv ( GL_PROJECTION_MATRIX, pr );
 
     // now render scene from light position
-    renderCube();
+    //renderCube();
     _submarine->draw();
 
     // copy depth map into texture
@@ -442,12 +438,12 @@ void Scene::renderScene()
     glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
                                                     // draw unlit geometry
-        glMatrixMode       ( GL_MODELVIEW );
-        glColor3f          ( 1.0, 0.5, 0.5 );
-        glActiveTextureARB ( GL_TEXTURE0_ARB );
+    glMatrixMode       ( GL_MODELVIEW );
+    glColor3f          ( 1.0, 0.5, 0.5 );
+    glActiveTextureARB ( GL_TEXTURE0_ARB );
 
-        glMatrixMode ( GL_MODELVIEW );
-        renderCube();
+    glMatrixMode ( GL_MODELVIEW );
+    drawObjects();
 }
 
 

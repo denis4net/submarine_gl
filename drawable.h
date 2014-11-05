@@ -92,14 +92,6 @@ public:
     virtual void activate();
 };
 
-class SubmarineShadow: public Submarine
-{
-protected:
-    Drawable *_o;
-  public:
-    SubmarineShadow(Drawable* o): Submarine(), _o(o) {}
-    void draw();
-    void tick();
-};
+
 
 #endif // DRAWABLE_H

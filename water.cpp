@@ -271,8 +271,6 @@ int	Water::loadTexture (const char * filename,  unsigned char * dest, const int 
 
 void Water::draw()
 {
-    //return;
-
     generate();
 
     unsigned int indice;
@@ -298,7 +296,7 @@ void Water::draw()
     Engine::translate(getPosition());
 
     /* The ground */
-#if 1
+#if 0
     glDisable (GL_TEXTURE_2D);
 
     glColor3f (1, 0.9, 0.7);
